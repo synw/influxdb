@@ -38,8 +38,8 @@ Define a datapoint:
    final row = InfluxRow(
       time: DateTime.parse("2020-04-06 09:49:18.156Z"),
       fields: <String, dynamic>{
-        "amount": "34",
-        "price": "2653.5",
+        "amount": 340,
+        "price": 2653.5,
       },
       tags: <String, dynamic>{
         "side": "ask",
