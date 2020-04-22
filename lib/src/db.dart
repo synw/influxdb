@@ -14,8 +14,8 @@ class InfluxDb {
   InfluxDb({
     @required this.address,
     @required this.token,
-    @required this.bucket,
     @required this.org,
+    this.bucket,
     this.batchInterval = 300,
   });
 
@@ -28,7 +28,7 @@ class InfluxDb {
   /// The Influxdb token
   final String token;
 
-  /// The Influxdb bucket to write into
+  /// The Influxdb default bucket to use
   String bucket;
 
   /// The interval to post batch data in milliseconds
@@ -40,17 +40,39 @@ class InfluxDb {
 
   /// Write an [InfluxRow] to the database
   Future<void> write(InfluxRow row,
-          {@required String measurement, bool verbose = false}) async =>
-      _postWrite(row.toLineProtocol(measurement), verbose: verbose);
+      {@required String measurement,
+      String toBucket,
+      bool verbose = false}) async {
+    String b;
+    try {
+      b = _getBucket(toBucket);
+    } catch (e) {
+      rethrow;
+    }
+    await _postWrite(row.toLineProtocol(measurement), b, verbose: verbose);
+  }
 
   /// Write line protocol data to the database
   Future<void> writeLine(String line,
-          {@required String measurement, bool verbose = false}) async =>
-      _postWrite(line, verbose: verbose);
+      {@required String measurement,
+      String toBucket,
+      bool verbose = false}) async {
+    String b;
+    try {
+      b = _getBucket(toBucket);
+    } catch (e) {
+      rethrow;
+    }
+    await _postWrite(line, b, verbose: verbose);
+  }
 
   /// Push an [InfluxRow] into the write queue
   Future<void> push(InfluxRow row,
       {@required String measurement, bool verbose = false}) async {
+    if (bucket == null) {
+      throw ArgumentError.notNull(
+          "Please set the default bucket before pushing to the write queue");
+    }
     if (!_isQueueRunning) {
       unawaited(_runWriteQueue(verbose: verbose));
       _isQueueRunning = true;
@@ -62,11 +84,18 @@ class InfluxDb {
   Future<List<InfluxRow>> select(
       {@required String start,
       @required String measurement,
+      String fromBucket,
       String stop,
       List<String> groupBy,
       int limit,
       bool verbose = false}) async {
-    var q = 'from(bucket:"$bucket") |> range(start: $start';
+    String b;
+    try {
+      b = _getBucket(fromBucket);
+    } catch (e) {
+      rethrow;
+    }
+    var q = 'from(bucket:"$b") |> range(start: $start';
     if (stop != null) {
       q += ', stop: $stop';
     }
@@ -98,10 +127,19 @@ class InfluxDb {
   List<InfluxRow> _processRawData(List<String> data, String measurement) {
     final rmap = <DateTime, InfluxRow>{};
     final headers = data[0];
-    data.sublist(1).forEach((line) {
+    for (final line in data.sublist(1)) {
       if (line.isNotEmpty) {
         if (line != "\n") {
-          final l = line.split(measurement);
+          //print(line);
+          if (line.startsWith(
+              ",result,table,_start,_stop,_time,_value,_field,_measurement")) {
+            //print("HEADER $line");
+            continue;
+          }
+          const spliter = "##*//*##";
+          final li = line.replaceFirst(measurement, spliter);
+          final l = li.split(spliter);
+          //print("SPLITED $l");
           if (l.length > 1) {
             final l0 = l[0].split(",");
             final table = int.parse(l0[2]);
@@ -165,7 +203,7 @@ class InfluxDb {
           }
         }
       }
-    });
+    }
     return rmap.values.toList();
   }
 
@@ -203,7 +241,14 @@ class InfluxDb {
     return resp;
   }
 
-  Future<void> _postWrite(String data, {@required bool verbose}) async {
+  Future<void> _postWrite(String data, String toBucket,
+      {@required bool verbose}) async {
+    String b;
+    try {
+      b = _getBucket(toBucket);
+    } catch (e) {
+      rethrow;
+    }
     if (verbose) {
       print(data);
     }
@@ -214,7 +259,7 @@ class InfluxDb {
             headers: <String, dynamic>{"Authorization": "Token $token"},
             contentType: "text/plain; charset=utf-8",
           ),
-          queryParameters: <String, dynamic>{"org": org, "bucket": bucket},
+          queryParameters: <String, dynamic>{"org": org, "bucket": b},
           data: data);
       //print("RESP: ${resp.statusCode} \n$resp");
     } on DioError catch (e) {
@@ -235,15 +280,30 @@ class InfluxDb {
   }
 
   Future<void> _runWriteQueue({@required bool verbose}) async {
+    if (verbose) {
+      print("Running write queue for bucket $bucket");
+    }
     _queueTimer =
         Timer.periodic(Duration(milliseconds: batchInterval), (t) async {
       if (_writeQueue.isNotEmpty) {
         if (verbose) {
           print("Queue: writing ${_writeQueue.length} datapoints");
         }
-        await _postWrite(_writeQueue.join("\n"), verbose: verbose);
+        await _postWrite(_writeQueue.join("\n"), bucket, verbose: verbose);
         _writeQueue.clear();
       }
     });
+  }
+
+  String _getBucket(String b) {
+    if (b == null) {
+      if (bucket == null) {
+        throw ArgumentError.notNull(
+            "Please provide a bucket parameter or set the default bucket");
+      } else {
+        return bucket;
+      }
+    }
+    return b;
   }
 }

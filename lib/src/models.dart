@@ -70,10 +70,10 @@ class InfluxRow {
       s += "Tags:\n";
       tags.forEach((k, dynamic v) {
         s += "- $k : $v\n";
-        print("------------");
+        /*print("------------");
         print("k = $k");
         print("v = $v");
-        print("------------");
+        print("------------");*/
       });
     }
     return s;
