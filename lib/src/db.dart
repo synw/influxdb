@@ -114,6 +114,33 @@ class InfluxDb {
     return _processRawData(raw, measurement);
   }
 
+  /// Show all the measurements in a bucket
+  Future<List<String>> measurements(
+      {String inBucket, String timeRange = "-1h", bool verbose = false}) async {
+    String b;
+    try {
+      b = _getBucket(inBucket);
+    } catch (e) {
+      rethrow;
+    }
+    final q = 'from(bucket:"$b")'
+        '|> range(start:$timeRange)'
+        '|> keep(columns: ["_measurement"])'
+        '|> distinct()';
+    final dynamic res = await _postQuery(q, verbose: verbose);
+    final l = List<String>.from((res as String).split("\n"));
+    final m = <String>[];
+    for (final row in l) {
+      final el = row.split(",");
+      if (el.length != 5) {
+        continue;
+      }
+      final v = el[3];
+      m.add(v);
+    }
+    return m;
+  }
+
   /// Stop the write queue if started
   void stopQueue() {
     if (_isQueueRunning) {
