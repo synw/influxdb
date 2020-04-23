@@ -130,7 +130,7 @@ class InfluxDb {
     final dynamic res = await _postQuery(q, verbose: verbose);
     final l = List<String>.from((res as String).split("\n"));
     final m = <String>[];
-    for (final row in l) {
+    for (final row in l.sublist(1)) {
       final el = row.split(",");
       if (el.length != 5) {
         continue;
