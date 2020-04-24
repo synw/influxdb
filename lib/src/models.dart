@@ -5,6 +5,7 @@ class InfluxRow {
   /// Default constructor
   const InfluxRow(
       {@required this.fields,
+      @required this.measurement,
       this.time,
       this.tags = const <String, dynamic>{},
       this.table});
@@ -20,6 +21,9 @@ class InfluxRow {
 
   /// The table number in query results
   final int table;
+
+  /// The measurement
+  final String measurement;
 
   /// Convert this to an Influxdb line protocol string
   ///
