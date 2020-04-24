@@ -28,13 +28,7 @@ const limit = 1;
 Future<void> read(InfluxDb db) async {
   final rows =
       await db.select(start: timeFrame, measurement: symbol, limit: limit);
-  rows.forEach((row) {
-    final buf = StringBuffer("${row.time} Fields: ");
-    row.fields.forEach((key, dynamic value) => buf.write("$key : $value,"));
-    buf.write(" Tags: ");
-    row.tags.forEach((key, dynamic value) => buf.write("$key : $value,"));
-    print(buf.toString());
-  });
+  rows.forEach((row) => print(row.details()));
 }
 
 Future<void> write(InfluxDb db) async {
@@ -43,6 +37,7 @@ Future<void> write(InfluxDb db) async {
   _binance.aggTrade(symbol).listen((trade) {
     // create a row
     final row = InfluxRow(
+      measurement: symbol,
       time: trade.time,
       fields: <String, dynamic>{
         "amount": trade.qty,
