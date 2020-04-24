@@ -79,6 +79,25 @@ By default the queue will post to the api every 300 milliseconds. This can be co
    );
    ```
 
+### Measurements
+
+Count measurements for a field in a bucket:
+
+   ```dart
+   final fieldToCount = "timestamp";
+   final Map<String, int> m =
+       await db.countMeasurements(fieldToCount, start: "-1h");
+   m.forEach((measurement, numDatapoints) {
+     print("$measurement contains $numDatapoints datapoints");
+   });
+   ```
+
+Get all the measurements in a bucket:
+
+   ```dart
+   final List<String> m = await db.measurements(inBucket: "my_bucket");
+   ```
+
 ## Run the example
 
 Create a `example/bin/conf.dart` file:
