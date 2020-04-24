@@ -111,7 +111,42 @@ class InfluxDb {
     final dynamic resp = await _postQuery(q, verbose: verbose);
     // process result
     final raw = resp.toString().split("\n");
-    return _processRawData(raw, measurement);
+    return _processRawData(raw);
+  }
+
+  /// Count data in a bucket from a field name
+  Future<Map<String, int>> countMeasurements(String field,
+      {@required String start,
+      String fromBucket,
+      String stop,
+      bool verbose = false}) async {
+    String b;
+    try {
+      b = _getBucket(fromBucket);
+    } catch (e) {
+      rethrow;
+    }
+    var q = 'from(bucket:"$b") |> range(start: $start';
+    if (stop != null) {
+      q += ', stop: $stop';
+    }
+    q += ')';
+    q += ' |> filter(fn: (r) => r["_field"] == "$field")';
+    q += '|> count()';
+    // post to api
+    final dynamic resp = await _postQuery(q, verbose: verbose);
+    final raw = resp.toString().split("\n");
+    final res = <String, int>{};
+    raw.forEach((line) {
+      print(line);
+      if (line.startsWith(",_result")) {
+        final l = line.split(",");
+        final m = l[6];
+        final v = l.last;
+        res[m] = int.parse(v);
+      }
+    });
+    return res;
   }
 
   /// Show all the measurements in a bucket
@@ -151,7 +186,7 @@ class InfluxDb {
   /// Dispose the class when finished using
   void dispose() => stopQueue();
 
-  List<InfluxRow> _processRawData(List<String> data, String measurement) {
+  List<InfluxRow> _processRawData(List<String> data) {
     final rmap = <DateTime, InfluxRow>{};
     final headers = data[0];
     for (final line in data.sublist(1)) {
@@ -163,70 +198,59 @@ class InfluxDb {
             //print("HEADER $line");
             continue;
           }
-          const spliter = "##*//*##";
+          /*const spliter = "##*/ /*##";
           final li = line.replaceFirst(measurement, spliter);
-          final l = li.split(spliter);
-          //print("SPLITED $l");
-          if (l.length > 1) {
-            final l0 = l[0].split(",");
-            final table = int.parse(l0[2]);
-            final time = DateTime.parse(l0[5]);
-            final dynamic value = l0[6];
-            final field = l0[7].replaceFirst(",", "");
-            final tl = l[1].replaceFirst(",", "");
-            final tags = <String>[];
-            if (tl.contains(",")) {
-              tags.addAll(tl.replaceAll("\n", "").split(","));
-            } else {
-              tags.add(tl.replaceAll("\n", ""));
-              //print("no ${tags.length}");
-            }
-            //tags.removeWhere((element) => element == "");
-            /*print("----------");
-            //tags.forEach((element) => print);
-            print("$tl / $tags");
-            print("----------\n");*/
-            final tagLine = headers.replaceFirst(
-                ",result,table,_start,_stop,_time,_value,_field,_measurement,",
-                "");
-            //print("TAG LINE: $tagLine");
-            final tagNames = <String>[];
-            if (tagLine.length > 1) {
-              tagNames.addAll(tagLine.split(","));
-            } else {
-              tagNames.add(tagLine);
-            }
-            //tagNames.forEach((element) => print("TN $element"));
-            final tagsMap = <String, dynamic>{};
-            var i = 0;
-            //print("TN 0 : ${tagNames[0]}");
-            tags.forEach((v) {
-              tagsMap[tagNames[i]] = v;
-              ++i;
-            });
-            for (final k in tagsMap.keys) {
-              final dynamic v = tagsMap[k];
-              //print("k = $k");
-              //print("v = $v");
-            }
-            /*tagsMap.forEach((key, dynamic value) {
-              print("K $key : $value");
-            });*/
-            //print("TAGS MAP $tagsMap");
-            if (!rmap.containsKey(time)) {
-              rmap[time] = InfluxRow(
-                  table: table,
-                  fields: <String, dynamic>{field: value},
-                  tags: tagsMap,
-                  time: time);
-            } else {
-              final r = rmap[time];
-              final f = r.fields;
-              f[field] = value;
-              final row = InfluxRow(
-                  table: r.table, fields: f, tags: r.tags, time: r.time);
-              rmap[time] = row;
-            }
+          final l = li.split(spliter);*/
+
+          final tmpl = line.split(",");
+          if (tmpl.length < 2) {
+            continue;
+          }
+          final fieldsList = tmpl.sublist(0, 8);
+          final measurement = tmpl[8];
+          //final tagsList = tmpl.sublist(9);
+          final table = int.parse(fieldsList[2]);
+          final time = DateTime.parse(fieldsList[5]);
+          final dynamic value = fieldsList[6];
+          final field = fieldsList[7].replaceFirst(",", "");
+          // tags
+          final tags = <String>[];
+          final tagLine = headers.replaceFirst(
+              ",result,table,_start,_stop,_time,_value,_field,_measurement,",
+              "");
+          final tagNames = <String>[];
+          if (tagLine.length > 1) {
+            tagNames.addAll(tagLine.split(","));
+          } else {
+            tagNames.add(tagLine);
+          }
+          //tagNames.forEach((element) => print("TN $element"));
+          final tagsMap = <String, dynamic>{};
+          var i = 0;
+          //print("TN 0 : ${tagNames[0]}");
+          tags.forEach((v) {
+            tagsMap[tagNames[i]] = v;
+            ++i;
+          });
+          // row
+          if (!rmap.containsKey(time)) {
+            rmap[time] = InfluxRow(
+                measurement: measurement,
+                table: table,
+                fields: <String, dynamic>{field: value},
+                tags: tagsMap,
+                time: time);
+          } else {
+            final r = rmap[time];
+            final f = r.fields;
+            f[field] = value;
+            final row = InfluxRow(
+                measurement: measurement,
+                table: r.table,
+                fields: f,
+                tags: r.tags,
+                time: r.time);
+            rmap[time] = row;
           }
         }
       }
