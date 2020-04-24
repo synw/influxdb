@@ -138,7 +138,7 @@ class InfluxDb {
     final raw = resp.toString().split("\n");
     final res = <String, int>{};
     raw.forEach((line) {
-      print(line);
+      //print(line);
       if (line.startsWith(",_result")) {
         final l = line.split(",");
         final m = l[6];
