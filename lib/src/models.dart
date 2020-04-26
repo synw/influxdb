@@ -52,7 +52,14 @@ class InfluxRow {
         _ts = " ${DateTime.now().microsecondsSinceEpoch * 1000}";
       }
     }
-    return "$measurement,${_t.join(",")} ${_f.join(",")}${_ts}";
+    var s = "";
+    if (tags.keys.isNotEmpty) {
+      s += "$measurement,${_t.join(",")} ";
+    } else {
+      s += "$measurement ";
+    }
+    return s += "${_f.join(",")}${_ts}";
+    //return "$measurement,${_t.join(",")} ${_f.join(",")}${_ts}";
   }
 
   @override
