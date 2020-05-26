@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:meta/meta.dart';
@@ -176,6 +177,16 @@ class InfluxDb {
     return m;
   }
 
+  /// List all buckets
+  Future<List<String>> bucketNames() async {
+    final bl = await _apiGet("buckets") as Map<String, dynamic>;
+    final res = <String>[];
+    for (final b in bl["buckets"] as List) {
+      res.add(b["name"].toString());
+    }
+    return res;
+  }
+
   /// Stop the write queue if started
   void stopQueue() {
     if (_isQueueRunning) {
@@ -328,6 +339,33 @@ class InfluxDb {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<dynamic> _apiGet(String path) async {
+    final res = <String, dynamic>{};
+    try {
+      final addr = "$address/api/v2/$path";
+      final resp = await _dio.get<dynamic>(addr,
+          options: Options(
+              headers: <String, dynamic>{"Authorization": "Token $token"}));
+      //print("RESP: ${resp.statusCode} \n$resp");
+      return resp.data;
+    } on DioError catch (e) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx and is also not 304.
+      if (e.response != null) {
+        print(e.response.data);
+        print(e.response.headers);
+        print(e.response.request);
+      } else {
+        // Something happened in setting up or sending the request that triggered an Error
+        print(e.request.data);
+        print(e.message);
+      }
+    } catch (e) {
+      rethrow;
+    }
+    return res;
   }
 
   Future<void> _runWriteQueue({@required bool verbose}) async {
