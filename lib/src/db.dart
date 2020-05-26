@@ -177,6 +177,18 @@ class InfluxDb {
     return m;
   }
 
+  /// List buckets for an org id
+  Future<List<String>> bucketNamesForOrg(String orgId) async {
+    final bl =
+        await _apiGet("buckets", parameters: <String, dynamic>{"orgID": orgId})
+            as Map<String, dynamic>;
+    final res = <String>[];
+    for (final b in bl["buckets"] as List) {
+      res.add(b["name"].toString());
+    }
+    return res;
+  }
+
   /// List all buckets
   Future<List<String>> bucketNames() async {
     final bl = await _apiGet("buckets") as Map<String, dynamic>;
@@ -341,13 +353,17 @@ class InfluxDb {
     }
   }
 
-  Future<dynamic> _apiGet(String path) async {
+  Future<dynamic> _apiGet(String path,
+      {Map<String, dynamic> parameters = const <String, dynamic>{}}) async {
     final res = <String, dynamic>{};
     try {
       final addr = "$address/api/v2/$path";
-      final resp = await _dio.get<dynamic>(addr,
-          options: Options(
-              headers: <String, dynamic>{"Authorization": "Token $token"}));
+      final resp = await _dio.get<dynamic>(
+        addr,
+        options: Options(
+            headers: <String, dynamic>{"Authorization": "Token $token"}),
+        queryParameters: parameters,
+      );
       //print("RESP: ${resp.statusCode} \n$resp");
       return resp.data;
     } on DioError catch (e) {
