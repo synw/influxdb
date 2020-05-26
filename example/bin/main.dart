@@ -17,17 +17,19 @@ Future<void> main(List<String> args) async {
     }
   } else {
     print("Reading data");
+    final bl = await db.bucketNames();
+    print("Available buckets: $bl");
     await read(db);
   }
 }
 
 const symbol = "BTCUSDT";
 const timeFrame = "-1h";
-const limit = 1;
+const limit = 1000;
 
 Future<void> read(InfluxDb db) async {
-  final rows =
-      await db.select(start: timeFrame, measurement: symbol, limit: limit);
+  final rows = await db.select(
+      start: timeFrame, measurement: symbol, limit: limit, verbose: true);
   rows.forEach((row) => print(row.details()));
 }
 
@@ -42,10 +44,12 @@ Future<void> write(InfluxDb db) async {
       fields: <String, dynamic>{
         "amount": trade.qty,
         "price": trade.price,
+        "side": 1,
+        //"boo": true
       },
-      tags: <String, dynamic>{
+      /*tags: <String, dynamic>{
         "maker_side": trade.isBuyerMaker ? "buy" : "sell",
-      },
+      },*/
     );
     // push to the write queue
     unawaited(db.push(row, measurement: symbol, verbose: true));
