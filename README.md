@@ -79,6 +79,14 @@ By default the queue will post to the api every 300 milliseconds. This can be co
    );
    ```
 
+### Buckets
+
+Get all the bucket names:
+
+   ```dart
+   final List<String> bucketNames = await db.bucketNames();
+   ```
+
 ### Measurements
 
 Count measurements for a field in a bucket:
