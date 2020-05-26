@@ -87,6 +87,13 @@ Get all the bucket names:
    final List<String> bucketNames = await db.bucketNames();
    ```
 
+Get all the bucket names for an org id:
+
+   ```dart
+   final orgId = "my_org_id";
+   final List<String> bucketNames = await db.bucketNamesForOrg(orgId);
+   ```
+
 ### Measurements
 
 Count measurements for a field in a bucket:
